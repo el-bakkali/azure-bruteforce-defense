@@ -1,0 +1,25 @@
+{
+  "location": "uksouth",
+  "properties": {
+    "dataSources": {
+      "logFiles": [{
+        "name": "auditLogFile",
+        "streams": ["Custom-AuditLog_CL"],
+        "filePatterns": ["/var/log/audit/audit.log"],
+        "format": "text",
+        "settings": { "text": { "recordStartTimestampFormat": "ISO 8601" } }
+      }]
+    },
+    "destinations": {
+      "logAnalytics": [{
+        "workspaceResourceId": "/subscriptions/<subscription-id>/resourceGroups/rg-bruteforce-defense/providers/Microsoft.OperationalInsights/workspaces/<law-name>",
+        "name": "lawDest"
+      }]
+    },
+    "dataFlows": [{
+      "streams": ["Custom-AuditLog_CL"],
+      "destinations": ["lawDest"],
+      "outputStream": "Custom-AuditLog_CL"
+    }]
+  }
+}

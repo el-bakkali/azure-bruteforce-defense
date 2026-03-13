@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "bfdef-func-plan",
+      "location": "[resourceGroup().location]",
+      "sku": { "name": "Y1", "tier": "Dynamic" },
+      "kind": "functionapp",
+      "properties": { "reserved": true }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "bfdef-func",
+      "location": "[resourceGroup().location]",
+      "kind": "functionapp,linux",
+      "identity": { "type": "SystemAssigned" },
+      "dependsOn": [ "[resourceId('Microsoft.Web/serverfarms', 'bfdef-func-plan')]" ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', 'bfdef-func-plan')]",
+        "reserved": true,
+        "siteConfig": {
+          "linuxFxVersion": "Python|3.11",
+          "appSettings": [
+            { "name": "FUNCTIONS_EXTENSION_VERSION", "value": "~4" },
+            { "name": "FUNCTIONS_WORKER_RUNTIME", "value": "python" },
+            { "name": "AzureWebJobsStorage__accountName", "value": "<storage-account-name>" },
+            { "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING__accountName", "value": "<storage-account-name>" },
+            { "name": "WEBSITE_CONTENTSHARE", "value": "bfdef-func" },
+            { "name": "NSG_NAME", "value": "bfdef-nsg" },
+            { "name": "RESOURCE_GROUP", "value": "rg-bruteforce-defense" },
+            { "name": "SUBSCRIPTION_ID", "value": "<subscription-id>" },
+            { "name": "DEFENDER_VM_IP", "value": "<vm-public-ip>" },
+            { "name": "DEFENDER_VM_USER", "value": "azuredefender" },
+            { "name": "LAW_WORKSPACE_ID", "value": "<law-workspace-id>" },
+            { "name": "LAW_RESOURCE_ID", "value": "/subscriptions/<subscription-id>/resourceGroups/rg-bruteforce-defense/providers/Microsoft.OperationalInsights/workspaces/<law-name>" }
+          ]
+        }
+      }
+    }
+  ]
+}

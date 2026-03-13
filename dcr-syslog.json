@@ -1,0 +1,23 @@
+{
+  "location": "uksouth",
+  "properties": {
+    "dataSources": {
+      "syslog": [{
+        "name": "syslogAuth",
+        "streams": ["Microsoft-Syslog"],
+        "facilityNames": ["auth", "authpriv"],
+        "logLevels": ["Debug","Info","Notice","Warning","Error","Critical","Alert","Emergency"]
+      }]
+    },
+    "destinations": {
+      "logAnalytics": [{
+        "workspaceResourceId": "/subscriptions/<subscription-id>/resourceGroups/rg-bruteforce-defense/providers/Microsoft.OperationalInsights/workspaces/<law-name>",
+        "name": "lawDest"
+      }]
+    },
+    "dataFlows": [{
+      "streams": ["Microsoft-Syslog"],
+      "destinations": ["lawDest"]
+    }]
+  }
+}

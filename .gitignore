@@ -1,0 +1,26 @@
+# Dependencies
+function-app/.python_packages/
+__pycache__/
+*.pyc
+
+# Build artifacts
+function-app.zip
+*.zip
+
+# Deployment outputs
+deploy-info.json
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
