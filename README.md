@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Sentinel-SIEM-5C2D91?style=for-the-badge&logo=microsoftazure&logoColor=white" alt="Sentinel" />
 </p>
 
-<h1 align="center">🛡️ Azure Brute-Force SSH Defense</h1>
+<h1 align="center">Azure Brute-Force SSH Defense</h1>
 
 <p align="center">
   <strong>AI-powered threat hunting and log analysis — no KQL required.</strong><br/>
@@ -13,17 +13,17 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-deploy">Quick Deploy</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-features">Features</a> •
-  <a href="#-demo-walkthrough">Demo</a> •
-  <a href="#-project-structure">Structure</a> •
-  <a href="#-license">License</a>
+  <a href="#quick-deploy">Quick Deploy</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#features">Features</a> •
+  <a href="#demo-walkthrough">Demo</a> •
+  <a href="#project-structure">Structure</a> •
+  <a href="#license">License</a>
 </p>
 
 ---
 
-## 💡 What is this?
+## What is this?
 
 A **proof-of-concept** that demonstrates how Azure AI can transform security operations. Instead of writing complex KQL queries to hunt threats in your logs, you simply **chat** with an AI assistant that:
 
@@ -36,7 +36,7 @@ A **proof-of-concept** that demonstrates how Azure AI can transform security ope
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -75,9 +75,9 @@ A **proof-of-concept** that demonstrates how Azure AI can transform security ope
 
 ---
 
-## ✨ Features
+## Features
 
-### 🗣️ Conversational Threat Hunting
+### Conversational Threat Hunting
 Ask questions in plain English — the AI queries your logs and responds with structured analysis:
 
 ```
@@ -87,19 +87,19 @@ AI:   "I detected 47 failed SSH login attempts from 3 unique IPs.
        Severity: MEDIUM. Fail2ban has banned 2 of 3 IPs..."
 ```
 
-### 🔍 NullClaw Threat Hunting
+### NullClaw Threat Hunting
 Automated detection of [NullClaw](https://github.com/nullclaw) — a Zig-compiled attack tool — across 4 vectors:
 - **Installation** — git clone / download attempts
 - **Compilation** — Zig build commands in Syslog
 - **Execution** — Zig-compiled binary signatures in auditd
 - **Behavior** — Sub-second SSH brute-force bursts (Zig speed fingerprint)
 
-### 🤖 Azure OpenAI Integration
+### Azure OpenAI Integration
 - Uses **managed identity** (no API keys in code)
 - `DefaultAzureCredential` for zero-secret authentication
 - ChatProxy exposes an OpenAI-compatible `/v1/chat/completions` endpoint
 
-### 🛡️ Automated Defense
+### Automated Defense
 - **Fail2ban** auto-bans IPs after 3 failed SSH attempts
 - **NSG rules** for network-level blocking
 - **Severity assessment** — NONE / LOW / MEDIUM / HIGH / CRITICAL
@@ -107,7 +107,7 @@ Automated detection of [NullClaw](https://github.com/nullclaw) — a Zig-compile
 
 ---
 
-## 🚀 Quick Deploy
+## Quick Deploy
 
 ### Prerequisites
 - Azure subscription with **Contributor** access
@@ -164,6 +164,28 @@ az storage blob upload `
 .\deploy-sentinel-rules.ps1
 ```
 
+### Function App: Remote Build (Recommended)
+
+The Function App uses **remote build** — Azure installs Python dependencies on its Linux servers during deployment. This avoids cross-platform issues (e.g. developing on Windows, deploying to Linux) and removes the need for any local build step.
+
+**Enable remote build** (one-time setup):
+```powershell
+az functionapp config appsettings set `
+  --name <funcApp> --resource-group rg-bruteforce-defense `
+  --settings `
+    SCM_DO_BUILD_DURING_DEPLOYMENT=true `
+    ENABLE_ORYX_BUILD=true `
+    WEBSITE_RUN_FROM_PACKAGE=0
+```
+
+**Deploy from VS Code:**
+1. Install the [Azure Functions extension](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions)
+2. Open the `function-app/` folder
+3. Right-click in the Azure sidebar > **Deploy to Function App** > select your app
+4. Azure runs `pip install -r requirements.txt` on the server — no local `.venv` or `.python_packages` needed
+
+> The `.funcignore` file excludes `.venv`, `.python_packages`, `.github`, and other local-only files from the deployment package.
+
 ### Post-Deployment: Azure OpenAI Setup (if using Option 2)
 
 1. **Create Azure OpenAI resource** in the Azure portal
@@ -186,7 +208,7 @@ az storage blob upload `
 
 ---
 
-## 🎮 Demo Walkthrough
+## Demo Walkthrough
 
 ### 1. Open SSH for Attack Simulation
 ```
@@ -222,7 +244,7 @@ Azure Portal → NSG → AllowSSH rule → Delete (or restrict source IP)
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 azure-bruteforce-defense/
@@ -260,7 +282,7 @@ azure-bruteforce-defense/
 
 ---
 
-## 🔧 API Reference
+## API Reference
 
 ### `POST /api/AnalyzeLogs`
 
@@ -296,7 +318,7 @@ Simulate SSH brute-force against the Defender VM.
 
 ---
 
-## 🔐 Security Design
+## Security Design
 
 | Aspect | Implementation |
 |---|---|
@@ -309,7 +331,7 @@ Simulate SSH brute-force against the Defender VM.
 
 ---
 
-## 💰 Cost Estimate
+## Cost Estimate
 
 | Resource | SKU | ~Monthly Cost |
 |---|---|---|
@@ -320,11 +342,11 @@ Simulate SSH brute-force against the Defender VM.
 | Storage | Standard LRS | < $1 |
 | **Total** | | **~$47–52/month** |
 
-> 💡 **Tip:** Deallocate the VM when not demoing to cut costs by ~$30/month.
+> **Tip:** Deallocate the VM when not demoing to cut costs by ~$30/month.
 
 ---
 
-## 🧹 Cleanup
+## Cleanup
 
 ```powershell
 az group delete --name rg-bruteforce-defense --yes --no-wait
@@ -332,7 +354,7 @@ az group delete --name rg-bruteforce-defense --yes --no-wait
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repo
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -342,7 +364,7 @@ az group delete --name rg-bruteforce-defense --yes --no-wait
 
 ---
 
-## 📝 License
+## License
 
 This project is open source and available under the [MIT License](LICENSE).
 

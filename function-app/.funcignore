@@ -1,0 +1,8 @@
+.git*
+.github
+.vscode
+__azurite_db*__.json
+.python_packages
+local.settings.json
+test
+.venv
