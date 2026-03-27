@@ -47,9 +47,9 @@ A **proof-of-concept** that demonstrates how Azure AI can transform security ope
 │  │  Ubuntu 22.04 │                        │                      │  │
 │  │  ── Fail2ban  │                        │  ├─ AnalyzeLogs ─────┤──┤
 │  │  ── AMA       │                        │  │  (KQL + OpenAI)   │  │
-│  │  ── auditd    │                        │  ├─ ChatProxy        │  │
-│  └──────┬───────┘                        │  └─ SimulateAttack   │  │
-│         │ Syslog                          └──────────┬───────────┘  │
+│  │  ── auditd    │                        │                      │  │
+│  └──────┬───────┘                        └──────────┬───────────┘  │
+│         │ Syslog                                     │              │
 │         ▼                                            │              │
 │  ┌──────────────┐    Live KQL             ┌─────────┴────────┐    │
 │  │ Log Analytics │◄──────────────────────│  Azure OpenAI    │    │
@@ -88,9 +88,9 @@ Ask questions in plain English — the AI queries your full Syslog table live an
 ```
 You:  "Who's attacking my server?"
 AI:   "I found 12 failed SSH login attempts from 3 unique IPs.
-       108.142.230.59 targeted users 'marta' and 'test'.
-       20.107.5.167 targeted 'mehdi' and 'jovance'.
-       20.107.46.209 targeted 'root'. Severity: MEDIUM..."
+       x.x.x.1 targeted users 'admin' and 'test'.
+       x.x.x.2 targeted 'ubuntu' and 'deploy'.
+       x.x.x.3 targeted 'root'. Severity: MEDIUM..."
 ```
 
 ### Full Syslog Visibility
@@ -260,21 +260,12 @@ azure-bruteforce-defense/
 ├── function-app/
 │   ├── host.json                     # Azure Functions host config
 │   ├── requirements.txt              # Python: azure-functions, azure-identity,
-│   │                                 #         azure-monitor-query, paramiko
-│   ├── AnalyzeLogs/
-│   │   └── __init__.py               # Live KQL + Azure OpenAI analysis
-│   ├── ChatProxy/
-│   │   └── __init__.py               # Azure OpenAI proxy (managed identity)
-│   └── SimulateAttack/
-│       └── __init__.py               # SSH brute-force simulation (paramiko)
+│   │                                 #         azure-monitor-query
+│   └── AnalyzeLogs/
+│       └── __init__.py               # Live KQL + Azure OpenAI analysis
 │
 ├── frontend/
 │   └── index.html                    # Chat UI — conversational threat hunting
-│
-├── nullclaw-func/                    # NullClaw custom handler (experimental)
-│   ├── host.json
-│   ├── syslog-hunter-prompt.md
-│   └── ...
 │
 ├── deploy-infrastructure.ps1         # Full infrastructure deployment
 ├── post-deploy-config.ps1            # Function App code deployment
