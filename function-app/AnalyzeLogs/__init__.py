@@ -13,10 +13,13 @@ import os
 import datetime
 import traceback
 import urllib.request
+import urllib.error
 import azure.functions as func
 from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient, LogsQueryStatus
 
+# Single credential instance — reused across KQL and OpenAI calls
+_credential = DefaultAzureCredential()
 
 FULL_SYSLOG_KQL = """
 Syslog
@@ -29,11 +32,10 @@ Syslog
 
 def run_kql(workspace_id: str, query: str, hours: int) -> list:
     """Execute a KQL query against Log Analytics."""
-    credential = DefaultAzureCredential()
-    client = LogsQueryClient(credential)
+    client = LogsQueryClient(_credential)
 
     query = query.replace("{hours}", str(hours))
-    end_time = datetime.datetime.utcnow()
+    end_time = datetime.datetime.now(datetime.timezone.utc)
     start_time = end_time - datetime.timedelta(hours=hours)
 
     response = client.query_workspace(
@@ -63,11 +65,18 @@ def analyze_with_openai(rows: list, hours: int, question: str) -> dict:
         for r in rows
     )
 
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default")
+    token = _credential.get_token("https://cognitiveservices.azure.com/.default")
 
     aoai_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "")
     deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+
+    if not aoai_endpoint:
+        return {
+            "question": question,
+            "hours": hours,
+            "rows_analyzed": len(rows),
+            "analysis": "Error: AZURE_OPENAI_ENDPOINT not configured.",
+        }
 
     payload = json.dumps({
         "messages": [
@@ -92,8 +101,18 @@ def analyze_with_openai(rows: list, hours: int, question: str) -> dict:
         "Content-Type": "application/json",
     }, method="POST")
 
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="replace")
+        logging.error(f"Azure OpenAI error {e.code}: {error_body}")
+        return {
+            "question": question,
+            "hours": hours,
+            "rows_analyzed": len(rows),
+            "analysis": f"Azure OpenAI returned HTTP {e.code}. Check deployment and endpoint config.",
+        }
 
     return {
         "question": question,
@@ -146,6 +165,14 @@ def _handle(req: func.HttpRequest) -> func.HttpResponse:
         question = "Give me a full security summary of what's happening in my logs."
 
     rows = run_kql(workspace_id, FULL_SYSLOG_KQL, hours)
+
+    # Don't waste an OpenAI call if KQL returned an error
+    if rows and "error" in rows[0]:
+        return func.HttpResponse(
+            json.dumps({"error": "KQL query failed", "details": rows[0]["error"]}, default=str),
+            status_code=502, mimetype="application/json",
+        )
+
     result = analyze_with_openai(rows, hours, question)
     return func.HttpResponse(
         json.dumps(result, default=str),
