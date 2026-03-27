@@ -27,9 +27,9 @@
 
 A **proof-of-concept** that demonstrates how Azure AI can transform security operations. Instead of writing complex KQL queries to hunt threats in your logs, you simply **chat** with an AI assistant that:
 
-- **Queries your Azure Log Analytics** workspace automatically
-- **Analyzes SSH brute-force attacks** using GPT-4o-mini
-- **Hunts for NullClaw** (a Zig-built attack tool) across Syslog and auditd data
+- **Queries your Azure Log Analytics** Syslog table live on every request
+- **Sends the raw logs to GPT-4o-mini** which analyzes them and answers your question
+- **Covers all Syslog data** — SSH brute-force, Fail2ban bans, kernel events, UFW, daemon logs
 - **Provides actionable recommendations** — severity ratings, remediation steps, posture assessments
 
 > **No KQL knowledge needed.** Just ask: *"Show me who's attacking my server"* — the AI handles the rest.
@@ -42,16 +42,16 @@ A **proof-of-concept** that demonstrates how Azure AI can transform security ope
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Azure Resource Group                        │
 │                                                                     │
-│  ┌──────────────┐    SSH Brute-Force     ┌──────────────────────┐  │
-│  │  Defender VM  │◄──────────────────────│   Function App (B1)  │  │
-│  │  Ubuntu 22.04 │    SimulateAttack()    │                      │  │
-│  │  ── Fail2ban  │                        │  ├─ SimulateAttack   │  │
-│  │  ── AMA       │                        │  ├─ AnalyzeLogs      │  │
-│  │  ── auditd    │                        │  └─ ChatProxy ──────►├──┤
-│  └──────┬───────┘                        └──────────┬───────────┘  │
-│         │ Syslog                                     │              │
+│  ┌──────────────┐                        ┌──────────────────────┐  │
+│  │  Defender VM  │                        │   Function App (B1)  │  │
+│  │  Ubuntu 22.04 │                        │                      │  │
+│  │  ── Fail2ban  │                        │  ├─ AnalyzeLogs ─────┤──┤
+│  │  ── AMA       │                        │  │  (KQL + OpenAI)   │  │
+│  │  ── auditd    │                        │  ├─ ChatProxy        │  │
+│  └──────┬───────┘                        │  └─ SimulateAttack   │  │
+│         │ Syslog                          └──────────┬───────────┘  │
 │         ▼                                            │              │
-│  ┌──────────────┐    KQL Queries          ┌─────────┴────────┐    │
+│  ┌──────────────┐    Live KQL             ┌─────────┴────────┐    │
 │  │ Log Analytics │◄──────────────────────│  Azure OpenAI    │    │
 │  │  Workspace    │                        │  GPT-4o-mini     │    │
 │  │  ── Sentinel  │                        │  (Managed ID)    │    │
@@ -59,48 +59,52 @@ A **proof-of-concept** that demonstrates how Azure AI can transform security ope
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  Frontend — Static Website (Azure Blob Storage)              │  │
-│  │  Chat UI → AnalyzeLogs → ChatProxy → GPT-4o-mini response   │  │
+│  │  Chat UI → AnalyzeLogs (KQL + OpenAI) → AI response          │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
+```
+
+**How it works — single-hop flow:**
+```
+You type question → Frontend → AnalyzeLogs → [Live KQL query + Azure OpenAI] → Answer
 ```
 
 | Component | Purpose |
 |---|---|
 | **Defender VM** | Ubuntu 22.04 B2s with Fail2ban, Azure Monitor Agent, auditd |
-| **Function App** | 3 functions — attack simulation, log analysis, AI chat proxy |
+| **Function App** | AnalyzeLogs queries Syslog live and sends rows to GPT-4o-mini |
 | **Log Analytics** | Centralized log storage with Syslog ingestion via DCRs |
 | **Microsoft Sentinel** | SIEM layer for security analytics and hunting |
-| **Azure OpenAI** | GPT-4o-mini for natural language log analysis |
+| **Azure OpenAI** | GPT-4o-mini for natural language log analysis (managed identity) |
 | **Static Website** | Chat-based frontend for conversational threat hunting |
 
 ---
 
 ## Features
 
-### Conversational Threat Hunting
-Ask questions in plain English — the AI queries your logs and responds with structured analysis:
+### Conversational Log Analysis
+Ask questions in plain English — the AI queries your full Syslog table live and responds with analysis:
 
 ```
-You:  "Are there any brute-force attacks in the last hour?"
-AI:   "I detected 47 failed SSH login attempts from 3 unique IPs.
-       Top attacker: 185.220.101.x with 32 attempts targeting 'root'.
-       Severity: MEDIUM. Fail2ban has banned 2 of 3 IPs..."
+You:  "Who's attacking my server?"
+AI:   "I found 12 failed SSH login attempts from 3 unique IPs.
+       108.142.230.59 targeted users 'marta' and 'test'.
+       20.107.5.167 targeted 'mehdi' and 'jovance'.
+       20.107.46.209 targeted 'root'. Severity: MEDIUM..."
 ```
 
-### NullClaw Threat Hunting
-Automated detection of [NullClaw](https://github.com/nullclaw) — a Zig-compiled attack tool — across 4 vectors:
-- **Installation** — git clone / download attempts
-- **Compilation** — Zig build commands in Syslog
-- **Execution** — Zig-compiled binary signatures in auditd
-- **Behavior** — Sub-second SSH brute-force bursts (Zig speed fingerprint)
+### Full Syslog Visibility
+- Queries the **entire Syslog table** — auth, kern, daemon, cron, UFW, everything
+- Live KQL query on every request — always fresh data
+- OpenAI analyzes raw logs and finds patterns you didn't think to search for
 
 ### Azure OpenAI Integration
 - Uses **managed identity** (no API keys in code)
 - `DefaultAzureCredential` for zero-secret authentication
-- ChatProxy exposes an OpenAI-compatible `/v1/chat/completions` endpoint
+- AnalyzeLogs handles both KQL + OpenAI in a single HTTP call
 
 ### Automated Defense
-- **Fail2ban** auto-bans IPs after 3 failed SSH attempts
+- **Fail2ban** auto-bans IPs after failed SSH attempts
 - **NSG rules** for network-level blocking
 - **Severity assessment** — NONE / LOW / MEDIUM / HIGH / CRITICAL
 - **Actionable recommendations** generated per analysis
@@ -227,9 +231,9 @@ Content-Type: application/json
 Open the frontend at `https://<storageAccount>.z33.web.core.windows.net/`
 
 - Enter your Function App URL and function key
-- Click **"Attack Summary (1h)"** → AI analyzes the brute-force data
-- Click **"NullClaw Hunt"** → scans for advanced threat indicators
-- Or just ask: *"What should I do to improve security?"*
+- Click **"Security Summary (1h)"** → AI analyzes the latest logs
+- Click **"Who's Attacking Me?"** → identifies attacker IPs and patterns
+- Or just ask anything: *"Show me all Fail2ban bans"*, *"Any successful logins?"*
 
 ### 4. Explore in Sentinel
 ```
@@ -258,7 +262,7 @@ azure-bruteforce-defense/
 │   ├── requirements.txt              # Python: azure-functions, azure-identity,
 │   │                                 #         azure-monitor-query, paramiko
 │   ├── AnalyzeLogs/
-│   │   └── __init__.py               # Log analysis + NullClaw threat hunting
+│   │   └── __init__.py               # Live KQL + Azure OpenAI analysis
 │   ├── ChatProxy/
 │   │   └── __init__.py               # Azure OpenAI proxy (managed identity)
 │   └── SimulateAttack/
@@ -286,15 +290,28 @@ azure-bruteforce-defense/
 
 ### `POST /api/AnalyzeLogs`
 
-Query Log Analytics for SSH attack data or run NullClaw threat hunts.
+Query Syslog live and get AI-powered analysis.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
+| `question` | string | *auto-summary* | Natural language question about your logs |
 | `hours` | int | `1` | Lookback window (1–168 hours) |
-| `hunt` | string | — | Set to `"nullclaw"` for threat hunting |
-| `query` | string | — | Custom KQL query (advanced users) |
+| `query` | string | — | Custom KQL query (advanced escape hatch) |
 
-**Response** — structured report with severity, attacker IPs, Fail2ban actions, recommendations.
+**Example:**
+```json
+{ "question": "Who's attacking my server?", "hours": 6 }
+```
+
+**Response:**
+```json
+{
+  "question": "Who's attacking my server?",
+  "hours": 6,
+  "rows_analyzed": 500,
+  "analysis": "Based on the logs, 3 IPs are brute-forcing SSH..."
+}
+```
 
 ### `POST /api/v1/chat/completions`
 
